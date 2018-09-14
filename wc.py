@@ -297,16 +297,15 @@ if __name__ == '__main__':
                 elif os.path.isdir(fn):
                     if options.skim:
                         fns = os.listdir(fn)
-                        fns.sort()
                         for fd in fns:
-                            print(fd)
-                            if os.path.isfile(fd):
-                                with open(fd, errors='ignore') as folder:
+                            if os.path.isfile(os.path.join(fn,fd)):
+                                with open(os.path.join(fn,fd), errors='ignore') as folder:
                                     data = folder.read()
                                     lines, words, chars = get_count(data)
-                                    print_wc(options, lines, words, chars, fn)
-                                folder = open(fd, errors='ignore')
+                                    print_wc(options, lines, words, chars, fd)
+                                folder = open(os.path.join(fn,fd), errors='ignore')
                                 get_detail_count(folder)
+                                print('\n')
                     else:
                         print("use -s to traverse %s" % fn)
                 else:
