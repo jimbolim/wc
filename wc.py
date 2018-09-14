@@ -178,11 +178,11 @@ def opt():
                       action="store_true",
                       default=False,
                       help="only count lines")
-    parser.add_option("-n", "--nototal",
-                      dest="nototal",
+    parser.add_option("-s", "--skim",
+                      dest="skim",
                       action="store_true",
                       default=False,
-                      help="show total or not")
+                      help="traverse folder")
     parser.add_option("-x", "--windows",
                       dest="windows",
                       action="store_true",
@@ -192,55 +192,43 @@ def opt():
                       dest="detail",
                       action="store_true",
                       default=False,
-                      help="show detail informations")
+                      help="show detail informations,only c")
     options, args = parser.parse_args()
     return options, args
 
-'''
-isCmt
-功能：判断一行字符串是否为注释
-输入：
- line: 字符串行
- isInMultiCmt：前面一行是否在多行注释中
- qttnFlagList: 引号列表
-输出：
- isCmt: 当前行是否为注释
- isInMultiCmt：当前行是否在多行注释中
-'''
-
 
 def isCmt(line, multiCmtFlagIdx):
-    singleCmtFlags = ['#', '//']  # 单行注释符号
-    multiCmtFlagListone = ['"""',"'''","//*"]
-    multiCmtFlagListtwo = ['"""',"'''","*//"]
+    singleCmtFlag = '//'  # 单行注释符号
+    startCmtFlag = "/*"
+    endCmtFlag = "*/"
     isCmtRet = True
-    idx = 0
     # print 'line: ' + line.strip()
-    if multiCmtFlagIdx == -1:  # 不在多行注释中
+    if multiCmtFlagIdx == False:  # 不在多行注释中
         # 单行注释
-        for singleCmtFlag in singleCmtFlags:
-            # re.match(pattern, string, flags=0),匹配开头,\s是任意空白字符
-            if re.match(r'(\s)*' + singleCmtFlag, line):
-                return isCmtRet,multiCmtFlagIdx
-        while idx < len(multiCmtFlagListone):
-            # 多行注释开始符号
-            startCmtFlag = multiCmtFlagListone[idx]
-            if re.match(r'(\s)*' + startCmtFlag, line):  # 找到多行注释开始符号
-                multiCmtFlagIdx = idx
-                return isCmtRet,multiCmtFlagIdx
-            else:
-                idx += 1
-                continue  # 没有找到多行注释开始符，继续查找下个类型的符号
-        isCmtRet=False
-        return isCmtRet,multiCmtFlagIdx
-    elif multiCmtFlagIdx != -1:  # 在多行注释中
+        # re.match(pattern, string, flags=0),匹配开头,\s是任意空白字符
+        if re.match(r'(\s)*' + singleCmtFlag, line):
+            return isCmtRet, multiCmtFlagIdx
+        # 多行注释开始符号
+        if startCmtFlag in line:  # 找到多行注释开始符号
+            if endCmtFlag in line:
+                multiCmtFlagIdx = False
+                return isCmtRet, multiCmtFlagIdx
+            return isCmtRet, multiCmtFlagIdx
+        else:
+             # 没有找到多行注释开始符，继续查找下个类型的符号
+            multiCmtFlagIdx = False
+            isCmtRet = False
+            return isCmtRet, multiCmtFlagIdx
+    else:  # 在多行注释中
         # 多行注释开始符
-        endCmtFlag = multiCmtFlagListtwo[multiCmtFlagIdx]
-        if re.findall(r'.*?%s\s'%endCmtFlag,line):
-            multiCmtFlagIdx = -1
+        if endCmtFlag in line:
+            multiCmtFlagIdx = False
     # print isCmtRet, multiCmtFlagIdx
-    return isCmtRet,multiCmtFlagIdx  # 返回是否注释行，以及当前是否在多行注释中
+    return isCmtRet, multiCmtFlagIdx  # 返回是否注释行，以及当前是否在多行注释中
+
 # 计算文件的信息
+
+
 def get_count(data):
     chars = len(data)
     words = len(data.split())
@@ -251,52 +239,79 @@ def get_count(data):
 
 
 def print_wc(options, lines, words, chars, fn):
+    print('filename:'+fn)
     if options.lines:
-        print(lines)
+        print('lines:%s' % lines)
     if options.words:
-        print(words)
+        print('words:%s' % words)
     if options.chars:
-        print(chars)
-    print(fn)
+        print('chars:%s' % chars)
 
+
+def get_detail_count(fn):
+    datas = fn.readlines()
+    codelines = 0
+    nulllines = 0
+    commentlines = 0
+    lines = 0
+    multiCmtFlagIdx = False
+    for data in datas:
+        # 判断代码行，空行,注释行
+        # windows下的编辑器，在只要读到文本最后有'\n'的时候，都会另起一行，显示为空行。其实第二行根本就不存在。
+        if len(data.strip()) < 3 and not multiCmtFlagIdx:
+            nulllines += 1
+        else:
+            isCmtRet, multiCmtFlagIdx = isCmt(data, multiCmtFlagIdx)
+            if isCmtRet or multiCmtFlagIdx:
+                commentlines += 1
+            else:
+                codelines += 1
+    print('commentlines:%s' % commentlines)
+    print('nulllines:%s' % nulllines)
+    print('codelines:%s' % codelines)
 
 # 主函数
 
 
-def main():
+if __name__ == '__main__':
     options, args = opt()
     if options.windows:
         DirList(os.curdir, 0, 0, 0)
         # os.curdir 是当前目录地址
         mainloop()
     else:
-        if not (options.lines or options.words or options.chars):
-            options.lines, options.lines, options.chars = True, True, True
+        if not (options.lines or options.words or options.chars or options.detail):
+            options.lines, options.words, options.chars, options.detail = True, True, True, True
+
         if args:
-            total_lines, total_words, total_chars = 0, 0, 0
             for fn in args:
                 if os.path.isfile(fn):
                     with open(fn, errors='ignore') as fd:
                         data = fd.read()
                     lines, words, chars = get_count(data)
                     print_wc(options, lines, words, chars, fn)
-                    total_lines += lines
-                    total_words += words
-                    total_chars += chars
+                    if options.detail:
+                        fd = open(fn, errors='ignore')
+                        get_detail_count(fd)
                 # 判断是否文件夹
                 elif os.path.isdir(fn):
-                    print("%s: is a directory" % fn)
+                    if options.skim:
+                        fns = os.listdir(fn)
+                        fns.sort()
+                        for fd in fns:
+                            print(fd)
+                            if os.path.isfile(fd):
+                                with open(fd, errors='ignore') as folder:
+                                    data = folder.read()
+                                    lines, words, chars = get_count(data)
+                                    print_wc(options, lines, words, chars, fn)
+                                folder = open(fd, errors='ignore')
+                                get_detail_count(folder)
+                    else:
+                        print("use -s to traverse %s" % fn)
                 else:
                     print("%s: No such file or directory\n" % fn)
-            if len(args) > 1:
-                if not options.nototal:
-                    print_wc(options, total_lines,
-                             total_words, total_chars, 'total')
         else:
             DirList(os.curdir, 0, 0, 0)
             # os.curdir 是当前目录地址
             mainloop()
-
-
-if __name__ == '__main__':
-    main()

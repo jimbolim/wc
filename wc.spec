@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['wc.py'],
-             pathex=['C:\\Users\\10186\\Desktop\\wordcount'],
+             pathex=['C:\\Users\\10186\\Desktop\\wordcount\\新建文件夹'],
              binaries=[],
              datas=[],
              hiddenimports=[],
